@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { AppShell } from "./components/layout/app-shell";
-import { PlaceDetailsModal } from "./components/places/place-details-modal";
 import { MapPage } from "./pages/map-page";
 import { usePlaceFilters } from "./hooks/use-place-filters";
 import { usePlaces } from "./hooks/use-places";
-import type { LanguageCode, Place } from "./types/place";
+import type { LanguageCode } from "./types/place";
 
 function App() {
   const [language, setLanguage] = useState<LanguageCode>("en");
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [mapType, setMapType] = useState<"winter-v4" | "streets-v4" | "dataviz-v4">("winter-v4");
 
   const { places } = usePlaces();
 
@@ -28,6 +27,8 @@ function App() {
     <AppShell
       language={language}
       onLanguageChange={setLanguage}
+      mapType={mapType}
+      onMapTypeChange={setMapType}
       search={search}
       onSearchChange={setSearch}
       selectedCategory={selectedCategory}
@@ -40,12 +41,7 @@ function App() {
       <MapPage
         places={filteredPlaces}
         language={language}
-        onOpenDetails={setSelectedPlace}
-      />
-
-      <PlaceDetailsModal
-        place={selectedPlace}
-        onClose={() => setSelectedPlace(null)}
+        mapType={mapType}
       />
     </AppShell>
   );

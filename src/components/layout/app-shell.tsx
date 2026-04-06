@@ -37,6 +37,8 @@ interface AppShellProps {
   className?: string;
   language: "en" | "fr" | "ar";
   onLanguageChange: (language: "en" | "fr" | "ar") => void;
+  mapType: "winter-v4" | "streets-v4" | "dataviz-v4";
+  onMapTypeChange: (value: "winter-v4" | "streets-v4" | "dataviz-v4") => void;
   search: string;
   onSearchChange: (value: string) => void;
   selectedCategory: string;
@@ -127,6 +129,8 @@ const LanguageSelector = ({
 const AppSidebar = ({
   language,
   onLanguageChange,
+  mapType,
+  onMapTypeChange,
   search,
   onSearchChange,
   selectedCategory,
@@ -139,6 +143,8 @@ const AppSidebar = ({
 }: React.ComponentProps<typeof Sidebar> & {
   language: "en" | "fr" | "ar";
   onLanguageChange: (language: "en" | "fr" | "ar") => void;
+  mapType: "winter-v4" | "streets-v4" | "dataviz-v4";
+  onMapTypeChange: (value: "winter-v4" | "streets-v4" | "dataviz-v4") => void;
   search: string;
   onSearchChange: (value: string) => void;
   selectedCategory: string;
@@ -158,6 +164,21 @@ const AppSidebar = ({
           <SidebarGroup>
             <SidebarGroupLabel>Search & Filters</SidebarGroupLabel>
             <SidebarGroupContent className="space-y-3">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Map Type</div>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={mapType}
+                  onChange={(event) =>
+                    onMapTypeChange(event.target.value as "winter-v4" | "streets-v4" | "dataviz-v4")
+                  }
+                >
+                  <option value="winter-v4">Winter</option>
+                  <option value="streets-v4">Streets</option>
+                  <option value="dataviz-v4">Dataviz</option>
+                </select>
+              </div>
+
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Search</div>
                 <Input
@@ -214,6 +235,8 @@ export function AppShell({
   className,
   language,
   onLanguageChange,
+  mapType,
+  onMapTypeChange,
   search,
   onSearchChange,
   selectedCategory,
@@ -228,6 +251,8 @@ export function AppShell({
       <AppSidebar
         language={language}
         onLanguageChange={onLanguageChange}
+        mapType={mapType}
+        onMapTypeChange={onMapTypeChange}
         search={search}
         onSearchChange={onSearchChange}
         selectedCategory={selectedCategory}
