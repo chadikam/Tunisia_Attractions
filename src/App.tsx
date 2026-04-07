@@ -14,11 +14,12 @@ function App() {
   const {
     search,
     setSearch,
-    selectedCategory,
-    setSelectedCategory,
+    selectedCategories,
+    toggleCategory,
     selectedSubcategory,
     setSelectedSubcategory,
     categories,
+    categoryCounts,
     subcategories,
     filteredPlaces,
   } = usePlaceFilters(places);
@@ -31,11 +32,12 @@ function App() {
       onMapTypeChange={setMapType}
       search={search}
       onSearchChange={setSearch}
-      selectedCategory={selectedCategory}
-      onCategoryChange={setSelectedCategory}
+      selectedCategories={selectedCategories}
+      onCategoryToggle={toggleCategory}
       selectedSubcategory={selectedSubcategory}
       onSubcategoryChange={setSelectedSubcategory}
       categories={categories}
+      categoryCounts={categoryCounts}
       subcategories={subcategories}
     >
       <MapPage

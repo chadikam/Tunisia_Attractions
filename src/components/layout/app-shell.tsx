@@ -31,6 +31,7 @@ import {
 } from "../ui/sidebar";
 import { Input } from "../ui/input";
 import { cn } from "../../lib/utils";
+import { getCategoryColorHex } from "../../constants/place-category-colors";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -41,11 +42,12 @@ interface AppShellProps {
   onMapTypeChange: (value: "winter-v4" | "streets-v4" | "dataviz-v4") => void;
   search: string;
   onSearchChange: (value: string) => void;
-  selectedCategory: string;
-  onCategoryChange: (value: string) => void;
+  selectedCategories: string[];
+  onCategoryToggle: (value: string) => void;
   selectedSubcategory: string;
   onSubcategoryChange: (value: string) => void;
   categories: string[];
+  categoryCounts: Map<string, number>;
   subcategories: string[];
 }
 
@@ -133,11 +135,12 @@ const AppSidebar = ({
   onMapTypeChange,
   search,
   onSearchChange,
-  selectedCategory,
-  onCategoryChange,
+  selectedCategories,
+  onCategoryToggle,
   selectedSubcategory,
   onSubcategoryChange,
   categories,
+  categoryCounts,
   subcategories,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
@@ -147,11 +150,12 @@ const AppSidebar = ({
   onMapTypeChange: (value: "winter-v4" | "streets-v4" | "dataviz-v4") => void;
   search: string;
   onSearchChange: (value: string) => void;
-  selectedCategory: string;
-  onCategoryChange: (value: string) => void;
+  selectedCategories: string[];
+  onCategoryToggle: (value: string) => void;
   selectedSubcategory: string;
   onSubcategoryChange: (value: string) => void;
   categories: string[];
+  categoryCounts: Map<string, number>;
   subcategories: string[];
 }) => {
   return (
@@ -190,18 +194,30 @@ const AppSidebar = ({
 
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Category</div>
-                <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={selectedCategory}
-                  onChange={(event) => onCategoryChange(event.target.value)}
-                >
-                  <option value="all">All categories</option>
+                <div className="flex flex-wrap gap-2">
                   {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+                    <button
+                      key={category}
+                      type="button"
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${selectedCategories.includes(category) ? "shadow-sm" : "opacity-75 hover:opacity-100"}`}
+                      style={{
+                        borderColor: getCategoryColorHex(category),
+                        color: selectedCategories.includes(category) ? getCategoryColorHex(category) : undefined,
+                        backgroundColor: selectedCategories.includes(category)
+                          ? `${getCategoryColorHex(category)}1A`
+                          : undefined,
+                      }}
+                      onClick={() => onCategoryToggle(category)}
+                    >
+                      <span
+                        className="inline-block size-2 rounded-full"
+                        style={{ backgroundColor: getCategoryColorHex(category) }}
+                      />
+                      <span>{category}</span>
+                      <span className="text-[10px]">({categoryCounts.get(category) ?? 0})</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -239,11 +255,12 @@ export function AppShell({
   onMapTypeChange,
   search,
   onSearchChange,
-  selectedCategory,
-  onCategoryChange,
+  selectedCategories,
+  onCategoryToggle,
   selectedSubcategory,
   onSubcategoryChange,
   categories,
+  categoryCounts,
   subcategories,
 }: AppShellProps) {
   return (
@@ -255,11 +272,12 @@ export function AppShell({
         onMapTypeChange={onMapTypeChange}
         search={search}
         onSearchChange={onSearchChange}
-        selectedCategory={selectedCategory}
-        onCategoryChange={onCategoryChange}
+        selectedCategories={selectedCategories}
+        onCategoryToggle={onCategoryToggle}
         selectedSubcategory={selectedSubcategory}
         onSubcategoryChange={onSubcategoryChange}
         categories={categories}
+        categoryCounts={categoryCounts}
         subcategories={subcategories}
       />
       <SidebarInset>

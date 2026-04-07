@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, LayoutGrid, Rows3 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { LanguageCode, Place } from "../../types/place";
 import { getGoogleMapsUrl, getPlaceName } from "../../utils/place";
+import { CATEGORY_MARKER_COLORS } from "../../constants/place-category-colors";
 
 interface PlacesMapProps {
   places: Place[];
@@ -48,12 +50,47 @@ interface WikiSummary {
   articleUrl: string;
 }
 
+interface GovernorateAnchor {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
 const TUNISIA_BOUNDS: L.LatLngBoundsExpression = [
   [30.2, 7.5],
   [37.8, 11.9],
 ];
 
 const MAP_TILER_KEY = "akle7B8oEVS11sHZUeyd";
+
+const GOVERNORATE_ANCHORS: GovernorateAnchor[] = [
+  { name: "Ariana", lat: 36.8665, lng: 10.1647 },
+  { name: "Beja", lat: 36.7333, lng: 9.1833 },
+  { name: "Ben Arous", lat: 36.7531, lng: 10.2217 },
+  { name: "Bizerte", lat: 37.2744, lng: 9.8739 },
+  { name: "Gabes", lat: 33.8815, lng: 10.0982 },
+  { name: "Gafsa", lat: 34.425, lng: 8.7842 },
+  { name: "Jendouba", lat: 36.5011, lng: 8.7802 },
+  { name: "Kairouan", lat: 35.6781, lng: 10.0963 },
+  { name: "Kasserine", lat: 35.1676, lng: 8.8365 },
+  { name: "Kebili", lat: 33.7072, lng: 8.969 },
+  { name: "Kef", lat: 36.1742, lng: 8.7049 },
+  { name: "Mahdia", lat: 35.5047, lng: 11.0622 },
+  { name: "Manouba", lat: 36.8101, lng: 10.0963 },
+  { name: "Medenine", lat: 33.3549, lng: 10.5055 },
+  { name: "Monastir", lat: 35.777, lng: 10.8262 },
+  { name: "Nabeul", lat: 36.4513, lng: 10.7357 },
+  { name: "Sfax", lat: 34.7406, lng: 10.7603 },
+  { name: "Sidi Bouzid", lat: 35.0382, lng: 9.4849 },
+  { name: "Siliana", lat: 36.0833, lng: 9.3667 },
+  { name: "Sousse", lat: 35.8256, lng: 10.636 },
+  { name: "Tataouine", lat: 32.9297, lng: 10.4518 },
+  { name: "Tozeur", lat: 33.9197, lng: 8.1335 },
+  { name: "Tunis", lat: 36.8065, lng: 10.1815 },
+  { name: "Zaghouan", lat: 36.4029, lng: 10.1429 },
+];
+
+const LEAFLET_MARKER_SHADOW_URL = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png";
 
 function createMapTilerLayer(mapType: "winter-v4" | "streets-v4" | "dataviz-v4"): L.TileLayer {
   return L.tileLayer(`https://api.maptiler.com/maps/${mapType}/{z}/{x}/{y}.png?key=${MAP_TILER_KEY}`, {
@@ -128,10 +165,106 @@ function pointInFeature(lng: number, lat: number, feature: RegionFeature): boole
   return false;
 }
 
+function getFeatureCenter(feature: RegionFeature): { lat: number; lng: number } {
+  const points: Position2D[] = [];
+
+  if (feature.geometry.type === "Polygon") {
+    feature.geometry.coordinates.forEach((ring) => {
+      ring.forEach((point) => points.push(point));
+    });
+  } else {
+    feature.geometry.coordinates.forEach((polygon) => {
+      polygon.forEach((ring) => {
+        ring.forEach((point) => points.push(point));
+      });
+    });
+  }
+
+  if (points.length === 0) {
+    return { lat: 0, lng: 0 };
+  }
+
+  const { latSum, lngSum } = points.reduce(
+    (acc, [lng, lat]) => ({
+      latSum: acc.latSum + lat,
+      lngSum: acc.lngSum + lng,
+    }),
+    { latSum: 0, lngSum: 0 },
+  );
+
+  return {
+    lat: latSum / points.length,
+    lng: lngSum / points.length,
+  };
+}
+
+function distanceSquared(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const dLat = aLat - bLat;
+  const dLng = aLng - bLng;
+  return dLat * dLat + dLng * dLng;
+}
+
+function mapUnknownRegionsToGovernorates(features: RegionFeature[]): RegionFeature[] {
+  const allUnknown = features.every((feature) => {
+    const rawName = feature.properties.name?.trim().toLowerCase();
+    return !rawName || rawName === "unknown";
+  });
+
+  if (!allUnknown || features.length !== GOVERNORATE_ANCHORS.length) {
+    return features;
+  }
+
+  const featureCenters = features.map((feature, index) => ({
+    index,
+    center: getFeatureCenter(feature),
+  }));
+  const remainingFeatureIndexes = new Set(featureCenters.map((item) => item.index));
+  const remainingGovernorates = new Set(GOVERNORATE_ANCHORS.map((_, index) => index));
+  const assignedNameByFeature = new Map<number, string>();
+
+  while (remainingFeatureIndexes.size > 0 && remainingGovernorates.size > 0) {
+    let bestFeatureIndex = -1;
+    let bestGovernorateIndex = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    remainingFeatureIndexes.forEach((featureIndex) => {
+      const center = featureCenters[featureIndex].center;
+
+      remainingGovernorates.forEach((governorateIndex) => {
+        const anchor = GOVERNORATE_ANCHORS[governorateIndex];
+        const dist = distanceSquared(center.lat, center.lng, anchor.lat, anchor.lng);
+
+        if (dist < bestDistance) {
+          bestDistance = dist;
+          bestFeatureIndex = featureIndex;
+          bestGovernorateIndex = governorateIndex;
+        }
+      });
+    });
+
+    if (bestFeatureIndex === -1 || bestGovernorateIndex === -1) {
+      break;
+    }
+
+    assignedNameByFeature.set(bestFeatureIndex, GOVERNORATE_ANCHORS[bestGovernorateIndex].name);
+    remainingFeatureIndexes.delete(bestFeatureIndex);
+    remainingGovernorates.delete(bestGovernorateIndex);
+  }
+
+  return features.map((feature, index) => ({
+    ...feature,
+    properties: {
+      ...feature.properties,
+      name: assignedNameByFeature.get(index) ?? feature.properties.name,
+    },
+  }));
+}
+
 function normalizeRegionNames(features: RegionFeature[]): RegionFeature[] {
+  const maybeNamedFeatures = mapUnknownRegionsToGovernorates(features);
   const usedNames = new Map<string, number>();
 
-  return features.map((feature, index) => {
+  return maybeNamedFeatures.map((feature, index) => {
     const rawName = feature.properties.name?.trim();
     const baseName =
       rawName && rawName.toLowerCase() !== "unknown" ? rawName : `Region ${index + 1}`;
@@ -167,6 +300,24 @@ function getWikipediaApiUrl(place: Place): string | null {
   }
 }
 
+function createCategoryMarkerIcon(
+  category: string,
+  selected: boolean,
+): L.Icon {
+  const color = CATEGORY_MARKER_COLORS[category] ?? "blue";
+  const normalColor = selected ? "black" : color;
+
+  return L.icon({
+    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${normalColor}.png`,
+    iconRetinaUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${normalColor}.png`,
+    shadowUrl: LEAFLET_MARKER_SHADOW_URL,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    tooltipAnchor: [12, -28],
+    shadowSize: [41, 41],
+  });
+}
+
 export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -177,6 +328,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
   const [features, setFeatures] = useState<RegionFeature[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [poiPanelView, setPoiPanelView] = useState<"card" | "list">("card");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [wikiByPlaceId, setWikiByPlaceId] = useState<Record<string, WikiSummary>>({});
   const wikiRequestedRef = useRef<Set<string>>(new Set());
@@ -195,6 +347,17 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
       })
       .filter((item): item is PlacePoint => item !== null);
   }, [places]);
+
+  const randomInterestingPool = useMemo(() => {
+    const items = [...indexedPlaces];
+    for (let i = items.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = items[i];
+      items[i] = items[j];
+      items[j] = temp;
+    }
+    return items;
+  }, [indexedPlaces]);
 
   const placeRegionById = useMemo(() => {
     const lookup = new Map<string, string>();
@@ -269,6 +432,12 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
 
     return list;
   }, [language, visiblePlaces, wikiByPlaceId]);
+
+  const interestingPlaces = useMemo(() => {
+    return randomInterestingPool
+      .filter((point) => Boolean(wikiByPlaceId[point.place.id]?.imageUrl))
+      .slice(0, 12);
+  }, [randomInterestingPool, wikiByPlaceId]);
 
   useEffect(() => {
     if (!selectedPlaceId) {
@@ -350,11 +519,102 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
     });
   }, [selectedRegion, visiblePlaces]);
 
+  useEffect(() => {
+    if (selectedRegion) {
+      return;
+    }
+
+    const candidates = randomInterestingPool.slice(0, 40).map((point) => point.place);
+
+    candidates.forEach((place) => {
+      if (wikiRequestedRef.current.has(place.id)) {
+        return;
+      }
+
+      const apiUrl = getWikipediaApiUrl(place);
+      if (!apiUrl) {
+        wikiRequestedRef.current.add(place.id);
+        return;
+      }
+
+      wikiRequestedRef.current.add(place.id);
+
+      void fetch(apiUrl)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Wikipedia summary not available");
+          }
+          return response.json() as Promise<{
+            extract?: string;
+            thumbnail?: { source?: string };
+            content_urls?: { desktop?: { page?: string } };
+          }>;
+        })
+        .then((summary) => {
+          const description = summary.extract?.trim() ?? "";
+          const imageUrl = summary.thumbnail?.source ?? "";
+          const articleUrl = summary.content_urls?.desktop?.page ?? place.wikipedia_url ?? "";
+
+          setWikiByPlaceId((previous) => ({
+            ...previous,
+            [place.id]: {
+              description,
+              imageUrl,
+              articleUrl,
+            },
+          }));
+        })
+        .catch(() => {
+          setWikiByPlaceId((previous) => ({
+            ...previous,
+            [place.id]: {
+              description: "",
+              imageUrl: "",
+              articleUrl: place.wikipedia_url ?? "",
+            },
+          }));
+        });
+    });
+  }, [randomInterestingPool, selectedRegion]);
+
   function focusPlace(point: PlacePoint): void {
     const map = mapRef.current;
     setSelectedPlaceId(point.place.id);
     if (map) {
       map.flyTo([point.lat, point.lng], 10, { duration: 0.7 });
+    }
+  }
+
+  function resetToHeatmap(): void {
+    setSelectedPlaceId(null);
+    setSelectedRegion(null);
+
+    const map = mapRef.current;
+    if (map) {
+      map.fitBounds(TUNISIA_BOUNDS, { padding: [24, 24] });
+    }
+  }
+
+  function returnToSelectedGovernorate(): void {
+    setSelectedPlaceId(null);
+
+    if (!selectedRegion || features.length === 0) {
+      return;
+    }
+
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    const feature = features.find((item) => item.properties.name === selectedRegion);
+    if (!feature) {
+      return;
+    }
+
+    const bounds = L.geoJSON(feature as never).getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 9 });
     }
   }
 
@@ -452,6 +712,11 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
 
     if (polygonsLayerRef.current) {
       polygonsLayerRef.current.remove();
+      polygonsLayerRef.current = null;
+    }
+
+    if (selectedRegion || selectedPlaceId) {
+      return;
     }
 
     const polygonsLayer = L.layerGroup();
@@ -463,13 +728,11 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
         const regionName = props.name ?? "";
         const count = countByRegion.get(regionName) ?? 0;
         const intensity = count / maxCount;
-        const isSelected = selectedRegion === regionName;
-
         return {
-          color: isSelected ? "#bf360c" : "#0d47a1",
-          weight: isSelected ? 2 : 1,
-          fillColor: isSelected ? "#ef6c00" : "#1565c0",
-          fillOpacity: isSelected ? 0.82 : 0.15 + intensity * 0.6,
+          color: "#0d47a1",
+          weight: 1,
+          fillColor: "#1565c0",
+          fillOpacity: 0.15 + intensity * 0.6,
         };
       },
       onEachFeature: (featureData, layer) => {
@@ -496,19 +759,12 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
           map.fitBounds(bounds, { padding: [24, 24], maxZoom: 9 });
         });
       },
-      filter: (featureData) => {
-        if (!selectedRegion) {
-          return true;
-        }
-        const props = (featureData?.properties ?? {}) as { name?: string };
-        return props.name === selectedRegion;
-      },
     });
 
     geoJsonLayer.addTo(polygonsLayer);
     polygonsLayer.addTo(map);
     polygonsLayerRef.current = polygonsLayer;
-  }, [countByRegion, features, selectedRegion]);
+  }, [countByRegion, features, selectedPlaceId, selectedRegion]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -523,14 +779,11 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
     const poiLayer = L.layerGroup();
 
     if (selectedRegion) {
-      visiblePlaces.forEach((point) => {
+      sortedVisiblePlaces.forEach((point) => {
         const isSelectedPlace = selectedPlaceId === point.place.id;
-        const marker = L.circleMarker([point.lat, point.lng], {
-          radius: isSelectedPlace ? 8 : 6,
-          color: isSelectedPlace ? "#bf360c" : "#0d47a1",
-          fillColor: isSelectedPlace ? "#ef6c00" : "#1565c0",
-          fillOpacity: 0.95,
-          weight: isSelectedPlace ? 2 : 1,
+        const marker = L.marker([point.lat, point.lng], {
+          icon: createCategoryMarkerIcon(point.place.category, isSelectedPlace),
+          zIndexOffset: isSelectedPlace ? 1000 : 0,
         });
 
         marker.bindTooltip(getPlaceName(point.place, language), {
@@ -547,7 +800,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
 
     poiLayer.addTo(map);
     poiLayerRef.current = poiLayer;
-  }, [language, selectedPlaceId, selectedRegion, visiblePlaces]);
+  }, [language, selectedPlaceId, selectedRegion, sortedVisiblePlaces]);
 
   return (
     <div className="space-y-2">
@@ -567,11 +820,24 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
           {selectedPlacePoint ? (
             <div className="flex h-full flex-col">
               <div className="border-b px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Selected POI</p>
-                <h3 className="text-lg font-semibold">{getPlaceName(selectedPlacePoint.place, language)}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedPlacePoint.place.category} / {selectedPlacePoint.place.subcategory}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Selected POI</p>
+                    <h3 className="text-lg font-semibold">{getPlaceName(selectedPlacePoint.place, language)}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedPlacePoint.place.category} / {selectedPlacePoint.place.subcategory}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
+                    onClick={returnToSelectedGovernorate}
+                    aria-label={`Return to ${selectedRegion ?? "governorate"}`}
+                    title={`Return to ${selectedRegion ?? "governorate"}`}
+                  >
+                    <ArrowLeft className="size-4" />
+                  </button>
+                </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm">
                 {wikiByPlaceId[selectedPlacePoint.place.id]?.imageUrl ? (
@@ -599,9 +865,6 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                   <p>
                     <span className="font-medium">Coordinates:</span> {selectedPlacePoint.lat.toFixed(6)}, {selectedPlacePoint.lng.toFixed(6)}
                   </p>
-                  <p>
-                    <span className="font-medium">Wikidata:</span> {selectedPlacePoint.place.wikidata || "N/A"}
-                  </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <a
                       href={getGoogleMapsUrl(selectedPlacePoint.place)}
@@ -627,64 +890,242 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
             </div>
           ) : selectedRegion ? (
             <div className="flex h-full flex-col">
-              <div className="border-b px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Governorate</p>
-                <h3 className="text-lg font-semibold">{selectedRegion}</h3>
-                <p className="text-sm text-muted-foreground">{visiblePlaces.length} POIs in current filters</p>
+              <div className="space-y-3 border-b px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Governorate</p>
+                    <h3 className="text-lg font-semibold">{selectedRegion}</h3>
+                    <p className="text-sm text-muted-foreground">{sortedVisiblePlaces.length} POIs in current filters</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="inline-flex rounded-md border p-0.5">
+                      <button
+                        type="button"
+                        className={`rounded p-1.5 ${poiPanelView === "card" ? "bg-muted" : "hover:bg-muted/70"}`}
+                        onClick={() => setPoiPanelView("card")}
+                        aria-label="Card view"
+                        title="Card view"
+                      >
+                        <LayoutGrid className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className={`rounded p-1.5 ${poiPanelView === "list" ? "bg-muted" : "hover:bg-muted/70"}`}
+                        onClick={() => setPoiPanelView("list")}
+                        aria-label="List view"
+                        title="List view"
+                      >
+                        <Rows3 className="size-4" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted"
+                      onClick={resetToHeatmap}
+                      aria-label="Return to heatmap"
+                      title="Return to heatmap"
+                    >
+                      <ArrowLeft className="size-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
-                  {sortedVisiblePlaces.map((point) => {
-                    const wiki = wikiByPlaceId[point.place.id];
-                    return (
-                      <button
-                        key={point.place.id}
-                        type="button"
-                        className="w-full rounded-lg border p-3 text-left transition hover:bg-muted/50"
-                        onClick={() => {
-                          focusPlace(point);
-                        }}
-                      >
-                        <div className="flex gap-3">
+                {sortedVisiblePlaces.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No POIs in current filters.</p>
+                ) : poiPanelView === "list" ? (
+                  <div className="space-y-3">
+                    {sortedVisiblePlaces.map((point) => {
+                      const wiki = wikiByPlaceId[point.place.id];
+                      return (
+                        <button
+                          key={point.place.id}
+                          type="button"
+                          className="w-full rounded-lg border p-3 text-left transition hover:bg-muted/50"
+                          onClick={() => {
+                            focusPlace(point);
+                          }}
+                        >
+                          <div className="flex gap-3">
+                            {wiki?.imageUrl ? (
+                              <img
+                                src={wiki.imageUrl}
+                                alt={getPlaceName(point.place, language)}
+                                className="h-20 w-28 shrink-0 rounded-md border object-cover"
+                              />
+                            ) : null}
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {point.place.category} / {point.place.subcategory}
+                              </p>
+                              <p className="line-clamp-2 text-xs text-muted-foreground">
+                                {wiki?.description || "No description available."}
+                              </p>
+                              <p className="text-xs">
+                                <span className="font-medium">Coordinates:</span> {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+                              </p>
+                              <a
+                                href={getGoogleMapsUrl(point.place)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                See on Google Maps
+                              </a>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {sortedVisiblePlaces.map((point) => {
+                      const wiki = wikiByPlaceId[point.place.id];
+
+                      return (
+                        <button
+                          key={point.place.id}
+                          type="button"
+                          className="rounded-lg border p-2 text-left transition hover:bg-muted/50"
+                          onClick={() => {
+                            focusPlace(point);
+                          }}
+                        >
                           {wiki?.imageUrl ? (
                             <img
                               src={wiki.imageUrl}
                               alt={getPlaceName(point.place, language)}
-                              className="h-20 w-28 shrink-0 rounded-md border object-cover"
+                              className="h-28 w-full rounded-md border object-cover"
                             />
                           ) : null}
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
-                            <p className="text-xs text-muted-foreground">
+                          <div className="mt-2 space-y-1">
+                            <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
+                            <p className="line-clamp-1 text-xs text-muted-foreground">
                               {point.place.category} / {point.place.subcategory}
                             </p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {wiki?.description || "No description available."}
                             </p>
-                            <p className="text-xs">
-                              <span className="font-medium">Coordinates:</span> {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
-                            </p>
-                            <a
-                              href={getGoogleMapsUrl(point.place)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              See on Google Maps
-                            </a>
                           </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-              Click a governorate on the map to see its details and places here.
+            <div className="flex h-full flex-col px-4 py-3">
+              <div className="space-y-3 border-b pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Interesting places</p>
+                    <h3 className="text-lg font-semibold">Random picks with photos</h3>
+                    <p className="text-sm text-muted-foreground">{interestingPlaces.length} shown</p>
+                  </div>
+                  <div className="inline-flex shrink-0 rounded-md border p-0.5">
+                    <button
+                      type="button"
+                      className={`rounded p-1.5 ${poiPanelView === "card" ? "bg-muted" : "hover:bg-muted/70"}`}
+                      onClick={() => setPoiPanelView("card")}
+                      aria-label="Card view"
+                      title="Card view"
+                    >
+                      <LayoutGrid className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded p-1.5 ${poiPanelView === "list" ? "bg-muted" : "hover:bg-muted/70"}`}
+                      onClick={() => setPoiPanelView("list")}
+                      aria-label="List view"
+                      title="List view"
+                    >
+                      <Rows3 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto py-3">
+                {interestingPlaces.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Loading interesting places with photos...</p>
+                ) : poiPanelView === "list" ? (
+                  <div className="space-y-3">
+                    {interestingPlaces.map((point) => {
+                      const wiki = wikiByPlaceId[point.place.id];
+                      return (
+                        <button
+                          key={point.place.id}
+                          type="button"
+                          className="w-full rounded-lg border p-3 text-left transition hover:bg-muted/50"
+                          onClick={() => {
+                            setSelectedRegion(placeRegionById.get(point.place.id) ?? null);
+                            focusPlace(point);
+                          }}
+                        >
+                          <div className="flex gap-3">
+                            {wiki?.imageUrl ? (
+                              <img
+                                src={wiki.imageUrl}
+                                alt={getPlaceName(point.place, language)}
+                                className="h-20 w-28 shrink-0 rounded-md border object-cover"
+                              />
+                            ) : null}
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {point.place.category} / {point.place.subcategory}
+                              </p>
+                              <p className="line-clamp-2 text-xs text-muted-foreground">
+                                {wiki?.description || "No description available."}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {interestingPlaces.map((point) => {
+                      const wiki = wikiByPlaceId[point.place.id];
+
+                      return (
+                        <button
+                          key={point.place.id}
+                          type="button"
+                          className="rounded-lg border p-2 text-left transition hover:bg-muted/50"
+                          onClick={() => {
+                            setSelectedRegion(placeRegionById.get(point.place.id) ?? null);
+                            focusPlace(point);
+                          }}
+                        >
+                          {wiki?.imageUrl ? (
+                            <img
+                              src={wiki.imageUrl}
+                              alt={getPlaceName(point.place, language)}
+                              className="h-28 w-full rounded-md border object-cover"
+                            />
+                          ) : null}
+                          <div className="mt-2 space-y-1">
+                            <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
+                            <p className="line-clamp-1 text-xs text-muted-foreground">
+                              {point.place.category} / {point.place.subcategory}
+                            </p>
+                            <p className="line-clamp-2 text-xs text-muted-foreground">
+                              {wiki?.description || "No description available."}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
