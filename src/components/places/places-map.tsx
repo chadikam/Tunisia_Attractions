@@ -4,7 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { LanguageCode, Place } from "../../types/place";
 import { getGoogleMapsUrl, getPlaceName } from "../../utils/place";
-import { CATEGORY_MARKER_COLORS } from "../../constants/place-category-colors";
+import { getCategoryMarkerColor } from "../../constants/place-category-colors";
 
 interface PlacesMapProps {
   places: Place[];
@@ -62,6 +62,8 @@ const TUNISIA_BOUNDS: L.LatLngBoundsExpression = [
 ];
 
 const MAP_TILER_KEY = "akle7B8oEVS11sHZUeyd";
+const MIN_RANDOM_PHOTO_POIS = 9;
+const RANDOM_PHOTO_FETCH_BASE = 48;
 
 const GOVERNORATE_ANCHORS: GovernorateAnchor[] = [
   { name: "Ariana", lat: 36.8665, lng: 10.1647 },
@@ -304,7 +306,7 @@ function createCategoryMarkerIcon(
   category: string,
   selected: boolean,
 ): L.Icon {
-  const color = CATEGORY_MARKER_COLORS[category] ?? "blue";
+  const color = getCategoryMarkerColor(category);
   const normalColor = selected ? "black" : color;
 
   return L.icon({
@@ -524,7 +526,21 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
       return;
     }
 
-    const candidates = randomInterestingPool.slice(0, 40).map((point) => point.place);
+    const currentlyWithPhotos = randomInterestingPool.filter(
+      (point) => Boolean(wikiByPlaceId[point.place.id]?.imageUrl),
+    ).length;
+
+    if (currentlyWithPhotos >= MIN_RANDOM_PHOTO_POIS) {
+      return;
+    }
+
+    const missingPhotoCount = MIN_RANDOM_PHOTO_POIS - currentlyWithPhotos;
+    const fetchBudget = Math.min(
+      randomInterestingPool.length,
+      Math.max(RANDOM_PHOTO_FETCH_BASE, missingPhotoCount * 14),
+    );
+
+    const candidates = randomInterestingPool.slice(0, fetchBudget).map((point) => point.place);
 
     candidates.forEach((place) => {
       if (wikiRequestedRef.current.has(place.id)) {
@@ -575,7 +591,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
           }));
         });
     });
-  }, [randomInterestingPool, selectedRegion]);
+  }, [randomInterestingPool, selectedRegion, wikiByPlaceId]);
 
   function focusPlace(point: PlacePoint): void {
     const map = mapRef.current;
@@ -627,8 +643,8 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
       preferCanvas: true,
       maxBounds: TUNISIA_BOUNDS,
       maxBoundsViscosity: 1,
-      minZoom: 6,
-      maxZoom: 11,
+      minZoom: 7,
+      maxZoom: 30,
       worldCopyJump: false,
     }).setView([34.0, 9.5], 7);
 

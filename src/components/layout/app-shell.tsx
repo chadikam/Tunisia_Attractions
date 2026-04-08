@@ -1,6 +1,5 @@
 import {
   ChevronsUpDown,
-  Globe2,
   Languages,
 } from "lucide-react";
 import * as React from "react";
@@ -44,6 +43,8 @@ interface AppShellProps {
   onSearchChange: (value: string) => void;
   selectedCategories: string[];
   onCategoryToggle: (value: string) => void;
+  onCategorySelectAll: () => void;
+  onCategoryDeselectAll: () => void;
   selectedSubcategory: string;
   onSubcategoryChange: (value: string) => void;
   categories: string[];
@@ -56,8 +57,8 @@ const SidebarLogo = () => {
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton size="lg">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-sm bg-primary">
-            <Globe2 className="size-5 text-primary-foreground" />
+          <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-sm bg-primary/5">
+            <img src="/favicon.svg" alt="Tunisia Explorer" className="size-full object-cover" />
           </div>
           <div className="flex flex-col gap-0.5 leading-none">
             <span className="font-medium">Tunisia Explorer</span>
@@ -137,6 +138,8 @@ const AppSidebar = ({
   onSearchChange,
   selectedCategories,
   onCategoryToggle,
+  onCategorySelectAll,
+  onCategoryDeselectAll,
   selectedSubcategory,
   onSubcategoryChange,
   categories,
@@ -152,6 +155,8 @@ const AppSidebar = ({
   onSearchChange: (value: string) => void;
   selectedCategories: string[];
   onCategoryToggle: (value: string) => void;
+  onCategorySelectAll: () => void;
+  onCategoryDeselectAll: () => void;
   selectedSubcategory: string;
   onSubcategoryChange: (value: string) => void;
   categories: string[];
@@ -159,15 +164,15 @@ const AppSidebar = ({
   subcategories: string[];
 }) => {
   return (
-    <Sidebar collapsible="none" className="min-h-svh" {...props}>
+    <Sidebar collapsible="none" className="!h-svh !max-h-svh overflow-hidden" {...props}>
       <SidebarHeader>
         <SidebarLogo />
       </SidebarHeader>
       <SidebarContent className="overflow-hidden">
-        <ScrollArea className="min-h-0 flex-1">
-          <SidebarGroup>
+        <ScrollArea className="h-full min-h-0 flex-1">
+          <SidebarGroup className="h-full min-h-0">
             <SidebarGroupLabel>Search & Filters</SidebarGroupLabel>
-            <SidebarGroupContent className="space-y-3">
+            <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-3">
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Map Type</div>
                 <select
@@ -192,31 +197,55 @@ const AppSidebar = ({
                 />
               </div>
 
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Category</div>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => (
+              <div className="flex min-h-0 flex-1 flex-col space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-muted-foreground">Category</div>
+                  <div className="flex flex-wrap items-center gap-1">
                     <button
-                      key={category}
                       type="button"
-                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${selectedCategories.includes(category) ? "shadow-sm" : "opacity-75 hover:opacity-100"}`}
-                      style={{
-                        borderColor: getCategoryColorHex(category),
-                        color: selectedCategories.includes(category) ? getCategoryColorHex(category) : undefined,
-                        backgroundColor: selectedCategories.includes(category)
-                          ? `${getCategoryColorHex(category)}1A`
-                          : undefined,
-                      }}
-                      onClick={() => onCategoryToggle(category)}
+                      className="rounded-md border px-1.5 py-0.5 text-[10px] font-medium hover:bg-muted"
+                      onClick={onCategorySelectAll}
                     >
-                      <span
-                        className="inline-block size-2 rounded-full"
-                        style={{ backgroundColor: getCategoryColorHex(category) }}
-                      />
-                      <span>{category}</span>
-                      <span className="text-[10px]">({categoryCounts.get(category) ?? 0})</span>
+                      Select all
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      className="rounded-md border px-1.5 py-0.5 text-[10px] font-medium hover:bg-muted"
+                      onClick={onCategoryDeselectAll}
+                    >
+                      Deselect all
+                    </button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                  {categories.map((category) => {
+                    const categoryColor = getCategoryColorHex(category);
+                    const isSelected = selectedCategories.includes(category);
+
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition hover:bg-muted/60"
+                        onClick={() => onCategoryToggle(category)}
+                        aria-pressed={isSelected}
+                      >
+                        <span
+                          className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm border text-[10px] font-bold leading-none"
+                          style={{
+                            borderColor: categoryColor,
+                            backgroundColor: isSelected ? categoryColor : "transparent",
+                            color: isSelected ? "#ffffff" : categoryColor,
+                          }}
+                        >
+                          {isSelected ? "✓" : ""}
+                        </span>
+                        <span className="text-xs">
+                          {category} ({categoryCounts.get(category) ?? 0})
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -257,6 +286,8 @@ export function AppShell({
   onSearchChange,
   selectedCategories,
   onCategoryToggle,
+  onCategorySelectAll,
+  onCategoryDeselectAll,
   selectedSubcategory,
   onSubcategoryChange,
   categories,
@@ -274,6 +305,8 @@ export function AppShell({
         onSearchChange={onSearchChange}
         selectedCategories={selectedCategories}
         onCategoryToggle={onCategoryToggle}
+        onCategorySelectAll={onCategorySelectAll}
+        onCategoryDeselectAll={onCategoryDeselectAll}
         selectedSubcategory={selectedSubcategory}
         onSubcategoryChange={onSubcategoryChange}
         categories={categories}

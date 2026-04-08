@@ -16,6 +16,8 @@ function App() {
     setSearch,
     selectedCategories,
     toggleCategory,
+    selectAllCategories,
+    deselectAllCategories,
     selectedSubcategory,
     setSelectedSubcategory,
     categories,
@@ -34,6 +36,8 @@ function App() {
       onSearchChange={setSearch}
       selectedCategories={selectedCategories}
       onCategoryToggle={toggleCategory}
+      onCategorySelectAll={selectAllCategories}
+      onCategoryDeselectAll={deselectAllCategories}
       selectedSubcategory={selectedSubcategory}
       onSubcategoryChange={setSelectedSubcategory}
       categories={categories}

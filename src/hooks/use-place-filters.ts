@@ -132,11 +132,21 @@ export function usePlaceFilters(places: Place[]) {
     }
   };
 
+  const handleSelectAllCategories = () => {
+    setSelectedCategories(categories);
+  };
+
+  const handleDeselectAllCategories = () => {
+    setSelectedCategories([]);
+  };
+
   return {
     search,
     setSearch,
     selectedCategories,
     toggleCategory: handleCategoryToggle,
+    selectAllCategories: handleSelectAllCategories,
+    deselectAllCategories: handleDeselectAllCategories,
     selectedSubcategory,
     setSelectedSubcategory: handleSubcategoryChange,
     categories,
