@@ -1,4 +1,5 @@
 import {
+  SlidersHorizontal,
   ChevronsUpDown,
   Languages,
 } from "lucide-react";
@@ -163,16 +164,38 @@ const AppSidebar = ({
   categoryCounts: Map<string, number>;
   subcategories: string[];
 }) => {
+  const [filtersOpenOnMobile, setFiltersOpenOnMobile] = React.useState(false);
+
   return (
-    <Sidebar collapsible="none" className="!h-svh !max-h-svh overflow-hidden" {...props}>
+    <Sidebar
+      collapsible="none"
+      className="!h-auto !w-full overflow-visible border-b md:!h-svh md:!max-h-svh md:!w-[--sidebar-width] md:overflow-hidden md:border-b-0"
+      {...props}
+    >
       <SidebarHeader>
         <SidebarLogo />
+        <button
+          type="button"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted md:hidden"
+          onClick={() => setFiltersOpenOnMobile((value) => !value)}
+          aria-expanded={filtersOpenOnMobile}
+          aria-controls="mobile-filter-panel"
+        >
+          <SlidersHorizontal className="size-4" />
+          {filtersOpenOnMobile ? "Hide filters" : "Show filters"}
+        </button>
       </SidebarHeader>
-      <SidebarContent className="overflow-hidden">
-        <ScrollArea className="h-full min-h-0 flex-1">
-          <SidebarGroup className="h-full min-h-0">
+      <SidebarContent
+        id="mobile-filter-panel"
+        className={cn(
+          "overflow-visible md:flex md:overflow-hidden",
+          filtersOpenOnMobile ? "flex" : "hidden",
+        )}
+      >
+        <ScrollArea className="h-auto min-h-0 flex-1 md:h-full">
+          <SidebarGroup className="h-auto min-h-0 md:h-full">
             <SidebarGroupLabel>Search & Filters</SidebarGroupLabel>
-            <SidebarGroupContent className="flex min-h-0 flex-1 flex-col gap-3">
+            <SidebarGroupContent className="flex min-h-0 flex-col gap-3 md:flex-1">
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Map Type</div>
                 <select
@@ -197,27 +220,27 @@ const AppSidebar = ({
                 />
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col space-y-2">
+              <div className="flex min-h-0 flex-col space-y-2 md:flex-1">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-medium text-muted-foreground">Category</div>
                   <div className="flex flex-wrap items-center gap-1">
                     <button
                       type="button"
-                      className="rounded-md border px-1.5 py-0.5 text-[10px] font-medium hover:bg-muted"
+                      className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted"
                       onClick={onCategorySelectAll}
                     >
                       Select all
                     </button>
                     <button
                       type="button"
-                      className="rounded-md border px-1.5 py-0.5 text-[10px] font-medium hover:bg-muted"
+                      className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted"
                       onClick={onCategoryDeselectAll}
                     >
                       Deselect all
                     </button>
                   </div>
                 </div>
-                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                <div className="max-h-72 space-y-1 overflow-y-auto pr-1 md:min-h-0 md:max-h-none md:flex-1">
                   {categories.map((category) => {
                     const categoryColor = getCategoryColorHex(category);
                     const isSelected = selectedCategories.includes(category);
@@ -226,7 +249,7 @@ const AppSidebar = ({
                       <button
                         key={category}
                         type="button"
-                        className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition hover:bg-muted/60"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-muted/60 md:px-1.5 md:py-1 md:text-xs"
                         onClick={() => onCategoryToggle(category)}
                         aria-pressed={isSelected}
                       >
@@ -240,7 +263,7 @@ const AppSidebar = ({
                         >
                           {isSelected ? "✓" : ""}
                         </span>
-                        <span className="text-xs">
+                        <span className="text-sm md:text-xs">
                           {category} ({categoryCounts.get(category) ?? 0})
                         </span>
                       </button>
@@ -268,7 +291,7 @@ const AppSidebar = ({
           </SidebarGroup>
         </ScrollArea>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className={cn(filtersOpenOnMobile ? "flex" : "hidden", "md:flex")}>
         <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
       </SidebarFooter>
     </Sidebar>
@@ -295,7 +318,7 @@ export function AppShell({
   subcategories,
 }: AppShellProps) {
   return (
-    <SidebarProvider className={cn(className)}>
+    <SidebarProvider className={cn("flex-col md:flex-row", className)}>
       <AppSidebar
         language={language}
         onLanguageChange={onLanguageChange}
@@ -314,7 +337,7 @@ export function AppShell({
         subcategories={subcategories}
       />
       <SidebarInset>
-        <div className="flex flex-1 flex-col p-4">{children}</div>
+        <div className="flex flex-1 flex-col p-2 sm:p-3 md:p-4">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

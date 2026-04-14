@@ -72,6 +72,16 @@
 
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+
+  .leaflet-container {
+    touch-action: pan-x pan-y;
   }
 }
 

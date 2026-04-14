@@ -826,13 +826,13 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
         </div>
       ) : null}
 
-      <div className="flex h-[calc(100svh-2rem)] w-full gap-4">
+      <div className="flex w-full flex-col gap-3 lg:h-[calc(100svh-2rem)] lg:flex-row lg:gap-4">
         <div
           ref={mapContainerRef}
-          className="h-full w-1/3 shrink-0 rounded-xl border"
+          className="h-[52svh] min-h-[320px] w-full shrink-0 touch-pan-x touch-pan-y rounded-xl border lg:h-full lg:w-[40%] xl:w-1/3"
         />
 
-        <div className="h-full min-w-0 flex-1 rounded-xl border bg-card">
+        <div className="min-h-[38svh] min-w-0 flex-1 rounded-xl border bg-card lg:h-full">
           {selectedPlacePoint ? (
             <div className="flex h-full flex-col">
               <div className="border-b px-4 py-3">
@@ -855,7 +855,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                   </button>
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm">
+              <div className="overflow-visible px-4 py-3 text-sm lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 {wikiByPlaceId[selectedPlacePoint.place.id]?.imageUrl ? (
                   <img
                     src={wikiByPlaceId[selectedPlacePoint.place.id].imageUrl}
@@ -947,7 +947,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div className="overflow-visible px-4 py-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 {sortedVisiblePlaces.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No POIs in current filters.</p>
                 ) : poiPanelView === "list" ? (
@@ -1026,6 +1026,15 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {wiki?.description || "No description available."}
                             </p>
+                            <a
+                              href={getGoogleMapsUrl(point.place)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-block pt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              See on Google Maps
+                            </a>
                           </div>
                         </button>
                       );
@@ -1066,7 +1075,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto py-3">
+              <div className="overflow-visible py-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 {interestingPlaces.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Loading interesting places with photos...</p>
                 ) : poiPanelView === "list" ? (
@@ -1135,6 +1144,15 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {wiki?.description || "No description available."}
                             </p>
+                            <a
+                              href={getGoogleMapsUrl(point.place)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-block pt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              See on Google Maps
+                            </a>
                           </div>
                         </button>
                       );
