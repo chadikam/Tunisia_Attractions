@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, LayoutGrid, Rows3 } from "lucide-react";
+import { ArrowLeft, LayoutGrid, MapPin, Rows3, Landmark, ScrollText, Trees, Mountain } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { LanguageCode, Place } from "../../types/place";
@@ -43,6 +43,27 @@ interface PlacePoint {
   place: Place;
   lat: number;
   lng: number;
+}
+
+type TagIconKey = "historic" | "heritage" | "landmark" | "archaeological_site" | "park" | "nature" | "viewpoint" | "peak" | "beach";
+
+const tagIconMap: Record<TagIconKey, typeof Landmark> = {
+  historic: Landmark,
+  heritage: Landmark,
+  landmark: Landmark,
+  archaeological_site: ScrollText,
+  park: Trees,
+  nature: Trees,
+  viewpoint: Mountain,
+  peak: Mountain,
+  beach: Mountain,
+};
+
+function getTagIcon(key: string): typeof Landmark | null {
+  if (key in tagIconMap) {
+    return tagIconMap[key as TagIconKey];
+  }
+  return null;
 }
 
 interface WikiSummary {
@@ -853,19 +874,45 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                   }>
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(language, "selectedPoi")}</p>
                     <h3 className="text-lg font-semibold">{getPlaceName(selectedPlacePoint.place, language)}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {translateCategory(language, selectedPlacePoint.place.category)} / {translateSubcategory(language, selectedPlacePoint.place.subcategory)}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        {(() => {
+                          const Icon = getTagIcon(selectedPlacePoint.place.category);
+                          return Icon ? <Icon className="size-3.5" /> : null;
+                        })()}
+                        {translateCategory(language, selectedPlacePoint.place.category)}
+                      </span>
+                      <span className="text-muted-foreground/60">/</span>
+                      <span className="inline-flex items-center gap-1">
+                        {(() => {
+                          const Icon = getTagIcon(selectedPlacePoint.place.subcategory);
+                          return Icon ? <Icon className="size-3.5" /> : null;
+                        })()}
+                        {translateSubcategory(language, selectedPlacePoint.place.subcategory)}
+                      </span>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
-                    onClick={returnToSelectedGovernorate}
-                    aria-label={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
-                    title={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
-                  >
-                    <ArrowLeft className="size-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={getGoogleMapsUrl(selectedPlacePoint.place)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
+                      aria-label={t(language, "seeOnGoogleMaps")}
+                      title={t(language, "seeOnGoogleMaps")}
+                    >
+                      <MapPin className="size-4" />
+                    </a>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
+                      onClick={returnToSelectedGovernorate}
+                      aria-label={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
+                      title={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
+                    >
+                      <ArrowLeft className="size-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="overflow-visible px-4 py-3 text-sm lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
@@ -879,15 +926,6 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
 
                 <div className={isRtl ? "space-y-2 text-right" : "space-y-2"}>
                   <p>
-                    <span className="font-medium">{t(language, "nameEnLabel")}</span> {selectedPlacePoint.place.name_en || "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-medium">{t(language, "nameFrLabel")}</span> {selectedPlacePoint.place.name_fr || "N/A"}
-                  </p>
-                  <p dir="rtl">
-                    <span className="font-medium">{t(language, "nameArLabel")}</span> {selectedPlacePoint.place.name_ar || "N/A"}
-                  </p>
-                  <p>
                     <span className="font-medium">{t(language, "descriptionLabel")}</span>{" "}
                     {wikiByPlaceId[selectedPlacePoint.place.id]?.description || t(language, "noDescription")}
                   </p>
@@ -895,14 +933,6 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                     <span className="font-medium">{t(language, "coordinatesLabel")}</span> {selectedPlacePoint.lat.toFixed(6)}, {selectedPlacePoint.lng.toFixed(6)}
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <a
-                      href={getGoogleMapsUrl(selectedPlacePoint.place)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-                    >
-                      {t(language, "seeOnGoogleMaps")}
-                    </a>
                     {wikiByPlaceId[selectedPlacePoint.place.id]?.articleUrl ? (
                       <a
                         href={wikiByPlaceId[selectedPlacePoint.place.id].articleUrl}
@@ -993,9 +1023,36 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                               />
                             ) : null}
                             <div className={`min-w-0 flex-1 space-y-1 ${isRtl ? "text-right" : ""}`}>
-                              <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
+                                <a
+                                  href={getGoogleMapsUrl(point.place)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-primary hover:bg-muted"
+                                  onClick={(event) => event.stopPropagation()}
+                                  aria-label={t(language, "seeOnGoogleMaps")}
+                                  title={t(language, "seeOnGoogleMaps")}
+                                >
+                                  <MapPin className="size-3.5" />
+                                </a>
+                              </div>
                               <p className="text-xs text-muted-foreground">
-                                {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
+                                <span className="inline-flex items-center gap-1">
+                                  {(() => {
+                                    const Icon = getTagIcon(point.place.category);
+                                    return Icon ? <Icon className="size-3" /> : null;
+                                  })()}
+                                  {translateCategory(language, point.place.category)}
+                                </span>
+                                <span className="text-muted-foreground/60"> / </span>
+                                <span className="inline-flex items-center gap-1">
+                                  {(() => {
+                                    const Icon = getTagIcon(point.place.subcategory);
+                                    return Icon ? <Icon className="size-3" /> : null;
+                                  })()}
+                                  {translateSubcategory(language, point.place.subcategory)}
+                                </span>
                               </p>
                               <p className="line-clamp-2 text-xs text-muted-foreground">
                                 {wiki?.description || t(language, "noDescription")}
@@ -1003,15 +1060,6 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                               <p className="text-xs">
                                 <span className="font-medium">{t(language, "coordinatesLabel")}</span> {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
                               </p>
-                              <a
-                                href={getGoogleMapsUrl(point.place)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                {t(language, "seeOnGoogleMaps")}
-                              </a>
                             </div>
                           </div>
                         </button>
@@ -1042,22 +1090,40 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                             />
                           ) : null}
                           <div className="mt-2 space-y-1">
-                            <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
+                              <a
+                                href={getGoogleMapsUrl(point.place)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-primary hover:bg-muted"
+                                onClick={(event) => event.stopPropagation()}
+                                aria-label={t(language, "seeOnGoogleMaps")}
+                                title={t(language, "seeOnGoogleMaps")}
+                              >
+                                <MapPin className="size-3.5" />
+                              </a>
+                            </div>
                             <p className="line-clamp-1 text-xs text-muted-foreground">
-                              {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
+                              <span className="inline-flex items-center gap-1">
+                                {(() => {
+                                  const Icon = getTagIcon(point.place.category);
+                                  return Icon ? <Icon className="size-3" /> : null;
+                                })()}
+                                {translateCategory(language, point.place.category)}
+                              </span>
+                              <span className="text-muted-foreground/60"> / </span>
+                              <span className="inline-flex items-center gap-1">
+                                {(() => {
+                                  const Icon = getTagIcon(point.place.subcategory);
+                                  return Icon ? <Icon className="size-3" /> : null;
+                                })()}
+                                {translateSubcategory(language, point.place.subcategory)}
+                              </span>
                             </p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {wiki?.description || t(language, "noDescription")}
                             </p>
-                            <a
-                              href={getGoogleMapsUrl(point.place)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-block pt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              {t(language, "seeOnGoogleMaps")}
-                            </a>
                           </div>
                         </button>
                       );
@@ -1134,9 +1200,36 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                               />
                             ) : null}
                             <div className={`min-w-0 flex-1 space-y-1 ${isRtl ? "text-right" : ""}`}>
-                              <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
+                                <a
+                                  href={getGoogleMapsUrl(point.place)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-primary hover:bg-muted"
+                                  onClick={(event) => event.stopPropagation()}
+                                  aria-label={t(language, "seeOnGoogleMaps")}
+                                  title={t(language, "seeOnGoogleMaps")}
+                                >
+                                  <MapPin className="size-3.5" />
+                                </a>
+                              </div>
                               <p className="text-xs text-muted-foreground">
-                                {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
+                                <span className="inline-flex items-center gap-1">
+                                  {(() => {
+                                    const Icon = getTagIcon(point.place.category);
+                                    return Icon ? <Icon className="size-3" /> : null;
+                                  })()}
+                                  {translateCategory(language, point.place.category)}
+                                </span>
+                                <span className="text-muted-foreground/60"> / </span>
+                                <span className="inline-flex items-center gap-1">
+                                  {(() => {
+                                    const Icon = getTagIcon(point.place.subcategory);
+                                    return Icon ? <Icon className="size-3" /> : null;
+                                  })()}
+                                  {translateSubcategory(language, point.place.subcategory)}
+                                </span>
                               </p>
                               <p className="line-clamp-2 text-xs text-muted-foreground">
                                 {wiki?.description || t(language, "noDescription")}
@@ -1172,22 +1265,40 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                             />
                           ) : null}
                           <div className="mt-2 space-y-1">
-                            <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
+                              <a
+                                href={getGoogleMapsUrl(point.place)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-primary hover:bg-muted"
+                                onClick={(event) => event.stopPropagation()}
+                                aria-label={t(language, "seeOnGoogleMaps")}
+                                title={t(language, "seeOnGoogleMaps")}
+                              >
+                                <MapPin className="size-3.5" />
+                              </a>
+                            </div>
                             <p className="line-clamp-1 text-xs text-muted-foreground">
-                              {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
+                              <span className="inline-flex items-center gap-1">
+                                {(() => {
+                                  const Icon = getTagIcon(point.place.category);
+                                  return Icon ? <Icon className="size-3" /> : null;
+                                })()}
+                                {translateCategory(language, point.place.category)}
+                              </span>
+                              <span className="text-muted-foreground/60"> / </span>
+                              <span className="inline-flex items-center gap-1">
+                                {(() => {
+                                  const Icon = getTagIcon(point.place.subcategory);
+                                  return Icon ? <Icon className="size-3" /> : null;
+                                })()}
+                                {translateSubcategory(language, point.place.subcategory)}
+                              </span>
                             </p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">
                               {wiki?.description || t(language, "noDescription")}
                             </p>
-                            <a
-                              href={getGoogleMapsUrl(point.place)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-block pt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              {t(language, "seeOnGoogleMaps")}
-                            </a>
                           </div>
                         </button>
                       );
