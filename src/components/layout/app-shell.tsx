@@ -2,6 +2,8 @@ import {
   SlidersHorizontal,
   ChevronsUpDown,
   Languages,
+  Moon,
+  Sun,
 } from "lucide-react";
 import * as React from "react";
 
@@ -32,6 +34,7 @@ import {
 import { Input } from "../ui/input";
 import { cn } from "../../lib/utils";
 import { getCategoryColorHex } from "../../constants/place-category-colors";
+import { t, translateCategory, translateSubcategory } from "../../utils/i18n";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -40,6 +43,8 @@ interface AppShellProps {
   onLanguageChange: (language: "en" | "fr" | "ar") => void;
   mapType: "winter-v4" | "streets-v4" | "dataviz-v4";
   onMapTypeChange: (value: "winter-v4" | "streets-v4" | "dataviz-v4") => void;
+  theme: "light" | "dark";
+  onThemeToggle: () => void;
   search: string;
   onSearchChange: (value: string) => void;
   selectedCategories: string[];
@@ -53,17 +58,17 @@ interface AppShellProps {
   subcategories: string[];
 }
 
-const SidebarLogo = () => {
+const SidebarLogo = ({ language }: { language: "en" | "fr" | "ar" }) => {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton size="lg">
           <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-sm bg-primary/5">
-            <img src="/favicon.svg" alt="Tunisia Explorer" className="size-full object-cover" />
+            <img src="/favicon.svg" alt={t(language, "siteTitle")} className="size-full object-cover" />
           </div>
           <div className="flex flex-col gap-0.5 leading-none">
-            <span className="font-medium">Tunisia Explorer</span>
-            <span className="text-xs text-muted-foreground">Tourism Platform</span>
+            <span className="font-medium">{t(language, "siteTitle")}</span>
+            <span className="text-xs text-muted-foreground">{t(language, "siteSubtitle")}</span>
           </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -74,9 +79,11 @@ const SidebarLogo = () => {
 const LanguageSelector = ({
   language,
   onLanguageChange,
+  isRtl,
 }: {
   language: "en" | "fr" | "ar";
   onLanguageChange: (language: "en" | "fr" | "ar") => void;
+  isRtl: boolean;
 }) => {
   return (
     <SidebarMenu>
@@ -92,9 +99,11 @@ const LanguageSelector = ({
                   <Languages className="size-4" />
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Preferred Language</span>
-                <span className="truncate text-xs text-muted-foreground">Current: {language.toUpperCase()}</span>
+              <div className={cn("grid flex-1 text-sm leading-tight", isRtl ? "text-right" : "text-left")}>
+                <span className="truncate font-medium">{t(language, "preferredLanguage")}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {t(language, "currentLanguage", { code: language.toUpperCase() })}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -108,20 +117,20 @@ const LanguageSelector = ({
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Select Display Language</span>
-                  <span className="truncate text-xs text-muted-foreground">Applies across the platform</span>
+                  <span className="truncate font-medium">{t(language, "selectDisplayLanguage")}</span>
+                  <span className="truncate text-xs text-muted-foreground">{t(language, "appliesAcrossPlatform")}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onLanguageChange("en")}>
-              EN - English
+              {t(language, "languageEn")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onLanguageChange("fr")}>
-              FR - Francais
+              {t(language, "languageFr")}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onLanguageChange("ar")}>
-              AR - Arabic
+              {t(language, "languageAr")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -135,6 +144,8 @@ const AppSidebar = ({
   onLanguageChange,
   mapType,
   onMapTypeChange,
+  theme,
+  onThemeToggle,
   search,
   onSearchChange,
   selectedCategories,
@@ -152,6 +163,8 @@ const AppSidebar = ({
   onLanguageChange: (language: "en" | "fr" | "ar") => void;
   mapType: "winter-v4" | "streets-v4" | "dataviz-v4";
   onMapTypeChange: (value: "winter-v4" | "streets-v4" | "dataviz-v4") => void;
+  theme: "light" | "dark";
+  onThemeToggle: () => void;
   search: string;
   onSearchChange: (value: string) => void;
   selectedCategories: string[];
@@ -165,24 +178,32 @@ const AppSidebar = ({
   subcategories: string[];
 }) => {
   const [filtersOpenOnMobile, setFiltersOpenOnMobile] = React.useState(false);
+  const isRtl = language === "ar";
 
   return (
     <Sidebar
       collapsible="none"
-      className="!h-auto !w-full overflow-visible border-b md:!h-svh md:!max-h-svh md:!w-[--sidebar-width] md:overflow-hidden md:border-b-0"
+      dir={isRtl ? "rtl" : "ltr"}
+      className={cn(
+        "!h-auto !w-full overflow-visible border-b md:!h-svh md:!max-h-svh md:!w-[--sidebar-width] md:overflow-hidden md:border-b-0",
+        isRtl ? "text-right" : "text-left",
+      )}
       {...props}
     >
       <SidebarHeader>
-        <SidebarLogo />
+        <SidebarLogo language={language} />
         <button
           type="button"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted md:hidden"
+          className={cn(
+            "inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-muted md:hidden",
+            isRtl ? "self-end" : "self-start",
+          )}
           onClick={() => setFiltersOpenOnMobile((value) => !value)}
           aria-expanded={filtersOpenOnMobile}
           aria-controls="mobile-filter-panel"
         >
           <SlidersHorizontal className="size-4" />
-          {filtersOpenOnMobile ? "Hide filters" : "Show filters"}
+          {filtersOpenOnMobile ? t(language, "filtersHide") : t(language, "filtersShow")}
         </button>
       </SidebarHeader>
       <SidebarContent
@@ -194,10 +215,10 @@ const AppSidebar = ({
       >
         <ScrollArea className="h-auto min-h-0 flex-1 md:h-full">
           <SidebarGroup className="h-auto min-h-0 md:h-full">
-            <SidebarGroupLabel>Search & Filters</SidebarGroupLabel>
+            <SidebarGroupLabel className={cn(isRtl ? "w-full text-right" : "")}>{t(language, "searchFilters")}</SidebarGroupLabel>
             <SidebarGroupContent className="flex min-h-0 flex-col gap-3 md:flex-1">
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Map Type</div>
+                <div className="text-xs font-medium text-muted-foreground">{t(language, "mapType")}</div>
                 <select
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={mapType}
@@ -205,38 +226,38 @@ const AppSidebar = ({
                     onMapTypeChange(event.target.value as "winter-v4" | "streets-v4" | "dataviz-v4")
                   }
                 >
-                  <option value="winter-v4">Winter</option>
-                  <option value="streets-v4">Streets</option>
-                  <option value="dataviz-v4">Dataviz</option>
+                  <option value="winter-v4">{t(language, "mapTypeWinter")}</option>
+                  <option value="streets-v4">{t(language, "mapTypeStreets")}</option>
+                  <option value="dataviz-v4">{t(language, "mapTypeDataviz")}</option>
                 </select>
               </div>
 
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Search</div>
+                <div className="text-xs font-medium text-muted-foreground">{t(language, "searchLabel")}</div>
                 <Input
                   value={search}
                   onChange={(event) => onSearchChange(event.target.value)}
-                  placeholder="Search by EN / FR / AR"
+                  placeholder={t(language, "searchPlaceholder")}
                 />
               </div>
 
               <div className="flex min-h-0 flex-col space-y-2 md:flex-1">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">Category</div>
+                  <div className="text-xs font-medium text-muted-foreground">{t(language, "categoryLabel")}</div>
                   <div className="flex flex-wrap items-center gap-1">
                     <button
                       type="button"
                       className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted"
                       onClick={onCategorySelectAll}
                     >
-                      Select all
+                      {t(language, "selectAll")}
                     </button>
                     <button
                       type="button"
                       className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted"
                       onClick={onCategoryDeselectAll}
                     >
-                      Deselect all
+                      {t(language, "deselectAll")}
                     </button>
                   </div>
                 </div>
@@ -244,12 +265,16 @@ const AppSidebar = ({
                   {categories.map((category) => {
                     const categoryColor = getCategoryColorHex(category);
                     const isSelected = selectedCategories.includes(category);
+                    const categoryLabel = translateCategory(language, category);
 
                     return (
                       <button
                         key={category}
                         type="button"
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-muted/60 md:px-1.5 md:py-1 md:text-xs"
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition hover:bg-muted/60 md:px-1.5 md:py-1 md:text-xs",
+                          isRtl ? "flex-row-reverse text-right" : "text-left",
+                        )}
                         onClick={() => onCategoryToggle(category)}
                         aria-pressed={isSelected}
                       >
@@ -264,7 +289,7 @@ const AppSidebar = ({
                           {isSelected ? "✓" : ""}
                         </span>
                         <span className="text-sm md:text-xs">
-                          {category} ({categoryCounts.get(category) ?? 0})
+                          {categoryLabel} ({categoryCounts.get(category) ?? 0})
                         </span>
                       </button>
                     );
@@ -273,16 +298,16 @@ const AppSidebar = ({
               </div>
 
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Subcategory</div>
+                <div className="text-xs font-medium text-muted-foreground">{t(language, "subcategoryLabel")}</div>
                 <select
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={selectedSubcategory}
                   onChange={(event) => onSubcategoryChange(event.target.value)}
                 >
-                  <option value="all">All subcategories</option>
+                  <option value="all">{t(language, "allSubcategories")}</option>
                   {subcategories.map((subcategory) => (
                     <option key={subcategory} value={subcategory}>
-                      {subcategory}
+                      {translateSubcategory(language, subcategory)}
                     </option>
                   ))}
                 </select>
@@ -292,7 +317,28 @@ const AppSidebar = ({
         </ScrollArea>
       </SidebarContent>
       <SidebarFooter className={cn(filtersOpenOnMobile ? "flex" : "hidden", "md:flex")}>
-        <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              onClick={onThemeToggle}
+              aria-label={t(language, "toggleTheme")}
+              title={t(language, "toggleTheme")}
+            >
+              <div className="flex size-8 items-center justify-center rounded-lg border">
+                {theme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />}
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{t(language, "themeLabel")}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {theme === "dark" ? t(language, "themeDark") : t(language, "themeLight")}
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        <LanguageSelector language={language} onLanguageChange={onLanguageChange} isRtl={isRtl} />
       </SidebarFooter>
     </Sidebar>
   );
@@ -305,6 +351,8 @@ export function AppShell({
   onLanguageChange,
   mapType,
   onMapTypeChange,
+  theme,
+  onThemeToggle,
   search,
   onSearchChange,
   selectedCategories,
@@ -324,6 +372,8 @@ export function AppShell({
         onLanguageChange={onLanguageChange}
         mapType={mapType}
         onMapTypeChange={onMapTypeChange}
+        theme={theme}
+        onThemeToggle={onThemeToggle}
         search={search}
         onSearchChange={onSearchChange}
         selectedCategories={selectedCategories}

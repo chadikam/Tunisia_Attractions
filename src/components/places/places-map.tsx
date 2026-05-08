@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import type { LanguageCode, Place } from "../../types/place";
 import { getGoogleMapsUrl, getPlaceName } from "../../utils/place";
 import { getCategoryMarkerColor } from "../../constants/place-category-colors";
+import { t, translateCategory, translateSubcategory } from "../../utils/i18n";
 
 interface PlacesMapProps {
   places: Place[];
@@ -94,8 +95,12 @@ const GOVERNORATE_ANCHORS: GovernorateAnchor[] = [
 
 const LEAFLET_MARKER_SHADOW_URL = "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png";
 
-function createMapTilerLayer(mapType: "winter-v4" | "streets-v4" | "dataviz-v4"): L.TileLayer {
-  return L.tileLayer(`https://api.maptiler.com/maps/${mapType}/{z}/{x}/{y}.png?key=${MAP_TILER_KEY}`, {
+function createMapTilerLayer(
+  mapType: "winter-v4" | "streets-v4" | "dataviz-v4",
+  language: LanguageCode,
+): L.TileLayer {
+  const mapLanguage = language === "ar" ? "ar" : language === "fr" ? "fr" : "en";
+  return L.tileLayer(`https://api.maptiler.com/maps/${mapType}/{z}/{x}/{y}.png?key=${MAP_TILER_KEY}&language=${mapLanguage}`, {
     attribution:
       '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noreferrer">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
@@ -321,6 +326,7 @@ function createCategoryMarkerIcon(
 }
 
 export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
+  const isRtl = language === "ar";
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseLayerRef = useRef<L.TileLayer | null>(null);
@@ -648,7 +654,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
       worldCopyJump: false,
     }).setView([34.0, 9.5], 7);
 
-    const baseLayer = createMapTilerLayer(mapType);
+    const baseLayer = createMapTilerLayer(mapType, language);
     baseLayer.addTo(map);
     baseLayerRef.current = baseLayer;
 
@@ -676,10 +682,10 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
       baseLayerRef.current.remove();
     }
 
-    const baseLayer = createMapTilerLayer(mapType);
+    const baseLayer = createMapTilerLayer(mapType, language);
     baseLayer.addTo(map);
     baseLayerRef.current = baseLayer;
-  }, [mapType]);
+  }, [language, mapType]);
 
   useEffect(() => {
     const url = `${import.meta.env.BASE_URL}tunisia_governorates_clean.geojson`;
@@ -756,12 +762,12 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
         const regionName = props.name ?? "Unknown";
         const count = countByRegion.get(regionName) ?? 0;
 
-        layer.bindTooltip(`${regionName} (${count})`, {
+        layer.bindTooltip(`${regionName} (${count} ${t(language, "poisLabel")})`, {
           sticky: true,
           direction: "top",
         });
 
-        layer.bindPopup(`<strong>${regionName}</strong><br/>POIs: ${count}`);
+        layer.bindPopup(`<strong>${regionName}</strong><br/>${t(language, "poisLabel")}: ${count}`);
 
         layer.on("click", () => {
           setSelectedRegion((previous) => {
@@ -780,7 +786,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
     geoJsonLayer.addTo(polygonsLayer);
     polygonsLayer.addTo(map);
     polygonsLayerRef.current = polygonsLayer;
-  }, [countByRegion, features, selectedPlaceId, selectedRegion]);
+  }, [countByRegion, features, language, selectedPlaceId, selectedRegion]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -822,7 +828,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
     <div className="space-y-2">
       {loadError ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          Failed to load polygons: {loadError}
+          {t(language, "failedToLoadPolygons", { message: loadError })}
         </div>
       ) : null}
 
@@ -832,24 +838,31 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
           className="h-[52svh] min-h-[320px] w-full shrink-0 touch-pan-x touch-pan-y rounded-xl border lg:h-full lg:w-[40%] xl:w-1/3"
         />
 
-        <div className="min-h-[38svh] min-w-0 flex-1 rounded-xl border bg-card lg:h-full">
+        <div
+          className={
+            "min-h-[38svh] min-w-0 flex-1 rounded-xl border bg-card lg:h-full"
+          }
+          dir={isRtl ? "rtl" : "ltr"}
+        >
           {selectedPlacePoint ? (
             <div className="flex h-full flex-col">
               <div className="border-b px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Selected POI</p>
+                  <div className={
+                    `min-w-0 w-full ${isRtl ? "text-right" : "text-left"}`
+                  }>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(language, "selectedPoi")}</p>
                     <h3 className="text-lg font-semibold">{getPlaceName(selectedPlacePoint.place, language)}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {selectedPlacePoint.place.category} / {selectedPlacePoint.place.subcategory}
+                      {translateCategory(language, selectedPlacePoint.place.category)} / {translateSubcategory(language, selectedPlacePoint.place.subcategory)}
                     </p>
                   </div>
                   <button
                     type="button"
                     className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
                     onClick={returnToSelectedGovernorate}
-                    aria-label={`Return to ${selectedRegion ?? "governorate"}`}
-                    title={`Return to ${selectedRegion ?? "governorate"}`}
+                    aria-label={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
+                    title={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
                   >
                     <ArrowLeft className="size-4" />
                   </button>
@@ -864,22 +877,22 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                   />
                 ) : null}
 
-                <div className="space-y-2">
+                <div className={isRtl ? "space-y-2 text-right" : "space-y-2"}>
                   <p>
-                    <span className="font-medium">Name (EN):</span> {selectedPlacePoint.place.name_en || "N/A"}
+                    <span className="font-medium">{t(language, "nameEnLabel")}</span> {selectedPlacePoint.place.name_en || "N/A"}
                   </p>
                   <p>
-                    <span className="font-medium">Name (FR):</span> {selectedPlacePoint.place.name_fr || "N/A"}
+                    <span className="font-medium">{t(language, "nameFrLabel")}</span> {selectedPlacePoint.place.name_fr || "N/A"}
                   </p>
                   <p dir="rtl">
-                    <span className="font-medium">Name (AR):</span> {selectedPlacePoint.place.name_ar || "N/A"}
+                    <span className="font-medium">{t(language, "nameArLabel")}</span> {selectedPlacePoint.place.name_ar || "N/A"}
                   </p>
                   <p>
-                    <span className="font-medium">Description:</span>{" "}
-                    {wikiByPlaceId[selectedPlacePoint.place.id]?.description || "No description available."}
+                    <span className="font-medium">{t(language, "descriptionLabel")}</span>{" "}
+                    {wikiByPlaceId[selectedPlacePoint.place.id]?.description || t(language, "noDescription")}
                   </p>
                   <p>
-                    <span className="font-medium">Coordinates:</span> {selectedPlacePoint.lat.toFixed(6)}, {selectedPlacePoint.lng.toFixed(6)}
+                    <span className="font-medium">{t(language, "coordinatesLabel")}</span> {selectedPlacePoint.lat.toFixed(6)}, {selectedPlacePoint.lng.toFixed(6)}
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <a
@@ -888,7 +901,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                       rel="noreferrer"
                       className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
                     >
-                      See on Google Maps
+                      {t(language, "seeOnGoogleMaps")}
                     </a>
                     {wikiByPlaceId[selectedPlacePoint.place.id]?.articleUrl ? (
                       <a
@@ -897,7 +910,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         rel="noreferrer"
                         className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
                       >
-                        Wikipedia
+                        {t(language, "wikipedia")}
                       </a>
                     ) : null}
                   </div>
@@ -908,10 +921,14 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
             <div className="flex h-full flex-col">
               <div className="space-y-3 border-b px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Governorate</p>
+                  <div className={
+                    `min-w-0 ${isRtl ? "text-right" : "text-left"}`
+                  }>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(language, "governorate")}</p>
                     <h3 className="text-lg font-semibold">{selectedRegion}</h3>
-                    <p className="text-sm text-muted-foreground">{sortedVisiblePlaces.length} POIs in current filters</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t(language, "poiCountInFilters", { count: sortedVisiblePlaces.length })}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <div className="inline-flex rounded-md border p-0.5">
@@ -919,8 +936,8 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         type="button"
                         className={`rounded p-1.5 ${poiPanelView === "card" ? "bg-muted" : "hover:bg-muted/70"}`}
                         onClick={() => setPoiPanelView("card")}
-                        aria-label="Card view"
-                        title="Card view"
+                        aria-label={t(language, "cardView")}
+                        title={t(language, "cardView")}
                       >
                         <LayoutGrid className="size-4" />
                       </button>
@@ -928,8 +945,8 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         type="button"
                         className={`rounded p-1.5 ${poiPanelView === "list" ? "bg-muted" : "hover:bg-muted/70"}`}
                         onClick={() => setPoiPanelView("list")}
-                        aria-label="List view"
-                        title="List view"
+                        aria-label={t(language, "listView")}
+                        title={t(language, "listView")}
                       >
                         <Rows3 className="size-4" />
                       </button>
@@ -938,8 +955,8 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                       type="button"
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted"
                       onClick={resetToHeatmap}
-                      aria-label="Return to heatmap"
-                      title="Return to heatmap"
+                      aria-label={t(language, "returnToHeatmap")}
+                      title={t(language, "returnToHeatmap")}
                     >
                       <ArrowLeft className="size-4" />
                     </button>
@@ -949,7 +966,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
 
               <div className="overflow-visible px-4 py-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 {sortedVisiblePlaces.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No POIs in current filters.</p>
+                  <p className="text-sm text-muted-foreground">{t(language, "noPoisInFilters")}</p>
                 ) : poiPanelView === "list" ? (
                   <div className="space-y-3">
                     {sortedVisiblePlaces.map((point) => {
@@ -958,12 +975,16 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         <button
                           key={point.place.id}
                           type="button"
-                          className="w-full rounded-lg border p-3 text-left transition hover:bg-muted/50"
+                          className={
+                            `w-full rounded-lg border p-3 transition hover:bg-muted/50 ${isRtl ? "text-right" : "text-left"}`
+                          }
                           onClick={() => {
                             focusPlace(point);
                           }}
                         >
-                          <div className="flex gap-3">
+                          <div className={
+                            `flex gap-3 ${isRtl ? "flex-row-reverse text-right" : ""}`
+                          }>
                             {wiki?.imageUrl ? (
                               <img
                                 src={wiki.imageUrl}
@@ -971,16 +992,16 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                                 className="h-20 w-28 shrink-0 rounded-md border object-cover"
                               />
                             ) : null}
-                            <div className="min-w-0 flex-1 space-y-1">
+                            <div className={`min-w-0 flex-1 space-y-1 ${isRtl ? "text-right" : ""}`}>
                               <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
                               <p className="text-xs text-muted-foreground">
-                                {point.place.category} / {point.place.subcategory}
+                                {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
                               </p>
                               <p className="line-clamp-2 text-xs text-muted-foreground">
-                                {wiki?.description || "No description available."}
+                                {wiki?.description || t(language, "noDescription")}
                               </p>
                               <p className="text-xs">
-                                <span className="font-medium">Coordinates:</span> {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+                                <span className="font-medium">{t(language, "coordinatesLabel")}</span> {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
                               </p>
                               <a
                                 href={getGoogleMapsUrl(point.place)}
@@ -989,7 +1010,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                                 className="inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
                                 onClick={(event) => event.stopPropagation()}
                               >
-                                See on Google Maps
+                                {t(language, "seeOnGoogleMaps")}
                               </a>
                             </div>
                           </div>
@@ -1006,7 +1027,9 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         <button
                           key={point.place.id}
                           type="button"
-                          className="rounded-lg border p-2 text-left transition hover:bg-muted/50"
+                          className={
+                            `rounded-lg border p-2 transition hover:bg-muted/50 ${isRtl ? "text-right" : "text-left"}`
+                          }
                           onClick={() => {
                             focusPlace(point);
                           }}
@@ -1021,10 +1044,10 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                           <div className="mt-2 space-y-1">
                             <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
                             <p className="line-clamp-1 text-xs text-muted-foreground">
-                              {point.place.category} / {point.place.subcategory}
+                              {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
                             </p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">
-                              {wiki?.description || "No description available."}
+                              {wiki?.description || t(language, "noDescription")}
                             </p>
                             <a
                               href={getGoogleMapsUrl(point.place)}
@@ -1033,7 +1056,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                               className="inline-block pt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
                               onClick={(event) => event.stopPropagation()}
                             >
-                              See on Google Maps
+                              {t(language, "seeOnGoogleMaps")}
                             </a>
                           </div>
                         </button>
@@ -1046,19 +1069,25 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
           ) : (
             <div className="flex h-full flex-col px-4 py-3">
               <div className="space-y-3 border-b pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Interesting places</p>
-                    <h3 className="text-lg font-semibold">Random picks with photos</h3>
-                    <p className="text-sm text-muted-foreground">{interestingPlaces.length} shown</p>
+                <div className={
+                  `flex items-start justify-between gap-3 ${isRtl ? "flex-row-reverse" : ""}`
+                }>
+                  <div className={
+                    `min-w-0 ${isRtl ? "text-right" : "text-left"}`
+                  }>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(language, "interestingPlaces")}</p>
+                    <h3 className="text-lg font-semibold">{t(language, "randomPicks")}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t(language, "shownCount", { count: interestingPlaces.length })}
+                    </p>
                   </div>
                   <div className="inline-flex shrink-0 rounded-md border p-0.5">
                     <button
                       type="button"
                       className={`rounded p-1.5 ${poiPanelView === "card" ? "bg-muted" : "hover:bg-muted/70"}`}
                       onClick={() => setPoiPanelView("card")}
-                      aria-label="Card view"
-                      title="Card view"
+                      aria-label={t(language, "cardView")}
+                      title={t(language, "cardView")}
                     >
                       <LayoutGrid className="size-4" />
                     </button>
@@ -1066,8 +1095,8 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                       type="button"
                       className={`rounded p-1.5 ${poiPanelView === "list" ? "bg-muted" : "hover:bg-muted/70"}`}
                       onClick={() => setPoiPanelView("list")}
-                      aria-label="List view"
-                      title="List view"
+                      aria-label={t(language, "listView")}
+                      title={t(language, "listView")}
                     >
                       <Rows3 className="size-4" />
                     </button>
@@ -1077,7 +1106,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
 
               <div className="overflow-visible py-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 {interestingPlaces.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Loading interesting places with photos...</p>
+                  <p className="text-sm text-muted-foreground">{t(language, "loadingInteresting")}</p>
                 ) : poiPanelView === "list" ? (
                   <div className="space-y-3">
                     {interestingPlaces.map((point) => {
@@ -1086,13 +1115,17 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         <button
                           key={point.place.id}
                           type="button"
-                          className="w-full rounded-lg border p-3 text-left transition hover:bg-muted/50"
+                          className={
+                            `w-full rounded-lg border p-3 transition hover:bg-muted/50 ${isRtl ? "text-right" : "text-left"}`
+                          }
                           onClick={() => {
                             setSelectedRegion(placeRegionById.get(point.place.id) ?? null);
                             focusPlace(point);
                           }}
                         >
-                          <div className="flex gap-3">
+                          <div className={
+                            `flex gap-3 ${isRtl ? "flex-row-reverse text-right" : ""}`
+                          }>
                             {wiki?.imageUrl ? (
                               <img
                                 src={wiki.imageUrl}
@@ -1100,13 +1133,13 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                                 className="h-20 w-28 shrink-0 rounded-md border object-cover"
                               />
                             ) : null}
-                            <div className="min-w-0 flex-1 space-y-1">
+                            <div className={`min-w-0 flex-1 space-y-1 ${isRtl ? "text-right" : ""}`}>
                               <p className="truncate font-medium">{getPlaceName(point.place, language)}</p>
                               <p className="text-xs text-muted-foreground">
-                                {point.place.category} / {point.place.subcategory}
+                                {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
                               </p>
                               <p className="line-clamp-2 text-xs text-muted-foreground">
-                                {wiki?.description || "No description available."}
+                                {wiki?.description || t(language, "noDescription")}
                               </p>
                             </div>
                           </div>
@@ -1123,7 +1156,9 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                         <button
                           key={point.place.id}
                           type="button"
-                          className="rounded-lg border p-2 text-left transition hover:bg-muted/50"
+                          className={
+                            `rounded-lg border p-2 transition hover:bg-muted/50 ${isRtl ? "text-right" : "text-left"}`
+                          }
                           onClick={() => {
                             setSelectedRegion(placeRegionById.get(point.place.id) ?? null);
                             focusPlace(point);
@@ -1139,10 +1174,10 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                           <div className="mt-2 space-y-1">
                             <p className="line-clamp-1 text-sm font-medium">{getPlaceName(point.place, language)}</p>
                             <p className="line-clamp-1 text-xs text-muted-foreground">
-                              {point.place.category} / {point.place.subcategory}
+                              {translateCategory(language, point.place.category)} / {translateSubcategory(language, point.place.subcategory)}
                             </p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">
-                              {wiki?.description || "No description available."}
+                              {wiki?.description || t(language, "noDescription")}
                             </p>
                             <a
                               href={getGoogleMapsUrl(point.place)}
@@ -1151,7 +1186,7 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
                               className="inline-block pt-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
                               onClick={(event) => event.stopPropagation()}
                             >
-                              See on Google Maps
+                              {t(language, "seeOnGoogleMaps")}
                             </a>
                           </div>
                         </button>
