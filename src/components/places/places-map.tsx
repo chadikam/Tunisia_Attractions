@@ -6,6 +6,9 @@ import type { LanguageCode, Place } from "../../types/place";
 import { getGoogleMapsUrl, getPlaceName } from "../../utils/place";
 import { getCategoryMarkerColor } from "../../constants/place-category-colors";
 import { t, translateCategory, translateSubcategory } from "../../utils/i18n";
+import { calculateDistance } from "../../utils/distance";
+import { PlaceCard } from "./place-card";
+import { cn } from "../../lib/utils";
 
 interface PlacesMapProps {
   places: Place[];
@@ -45,7 +48,7 @@ interface PlacePoint {
   lng: number;
 }
 
-type TagIconKey = "historic" | "heritage" | "landmark" | "archaeological_site" | "park" | "nature" | "viewpoint" | "peak" | "beach";
+type TagIconKey = "historic" | "heritage" | "landmark" | "archaeological_site" | "park" | "nature" | "viewpoint" | "peak" | "beach" | "museum";
 
 const tagIconMap: Record<TagIconKey, typeof Landmark> = {
   historic: Landmark,
@@ -57,6 +60,7 @@ const tagIconMap: Record<TagIconKey, typeof Landmark> = {
   viewpoint: Mountain,
   peak: Mountain,
   beach: Mountain,
+  museum: Landmark,
 };
 
 function getTagIcon(key: string): typeof Landmark | null {
@@ -441,6 +445,30 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
     return indexedPlaces.find((point) => point.place.id === selectedPlaceId) ?? null;
   }, [indexedPlaces, selectedPlaceId]);
 
+  const similarPlaces = useMemo(() => {
+    if (!selectedPlacePoint) return [];
+
+    const currentPlace = selectedPlacePoint.place;
+    const currentLat = selectedPlacePoint.lat;
+    const currentLng = selectedPlacePoint.lng;
+
+    return places
+      .filter((p) => p.id !== currentPlace.id)
+      .map((p) => ({
+        place: p,
+        lat: parseFloat(p.latitude),
+        lng: parseFloat(p.longitude),
+        distance: calculateDistance(currentLat, currentLng, parseFloat(p.latitude), parseFloat(p.longitude)),
+        isSameCategory: p.category === currentPlace.category,
+      }))
+      .sort((a, b) => {
+        if (a.isSameCategory && !b.isSameCategory) return -1;
+        if (!a.isSameCategory && b.isSameCategory) return 1;
+        return a.distance - b.distance;
+      })
+      .slice(0, 4);
+  }, [selectedPlacePoint, places]);
+
   const sortedVisiblePlaces = useMemo(() => {
     const list = [...visiblePlaces];
 
@@ -772,10 +800,12 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
         const count = countByRegion.get(regionName) ?? 0;
         const intensity = count / maxCount;
         return {
-          color: "#0d47a1",
-          weight: 1,
-          fillColor: "#1565c0",
-          fillOpacity: 0.15 + intensity * 0.6,
+          color: "#5eaba4",
+          weight: 0.8,
+          opacity: 0.5,
+          fillColor: "#7ec8c8",
+          fillOpacity: 0.04 + intensity * 0.22,
+          dashArray: "4 3",
         };
       },
       onEachFeature: (featureData, layer) => {
@@ -866,83 +896,157 @@ export function PlacesMap({ places, language, mapType }: PlacesMapProps) {
           dir={isRtl ? "rtl" : "ltr"}
         >
           {selectedPlacePoint ? (
-            <div className="flex h-full flex-col">
-              <div className="border-b px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className={
-                    `min-w-0 w-full ${isRtl ? "text-right" : "text-left"}`
-                  }>
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{t(language, "selectedPoi")}</p>
-                    <h3 className="text-lg font-semibold">{getPlaceName(selectedPlacePoint.place, language)}</h3>
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        {(() => {
-                          const Icon = getTagIcon(selectedPlacePoint.place.category);
-                          return Icon ? <Icon className="size-3.5" /> : null;
-                        })()}
-                        {translateCategory(language, selectedPlacePoint.place.category)}
-                      </span>
-                      <span className="text-muted-foreground/60">/</span>
-                      <span className="inline-flex items-center gap-1">
-                        {(() => {
-                          const Icon = getTagIcon(selectedPlacePoint.place.subcategory);
-                          return Icon ? <Icon className="size-3.5" /> : null;
-                        })()}
-                        {translateSubcategory(language, selectedPlacePoint.place.subcategory)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={getGoogleMapsUrl(selectedPlacePoint.place)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
-                      aria-label={t(language, "seeOnGoogleMaps")}
-                      title={t(language, "seeOnGoogleMaps")}
-                    >
-                      <MapPin className="size-4" />
-                    </a>
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border hover:bg-muted"
-                      onClick={returnToSelectedGovernorate}
-                      aria-label={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
-                      title={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
-                    >
-                      <ArrowLeft className="size-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="overflow-visible px-4 py-3 text-sm lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <div className="flex h-full flex-col overflow-hidden">
+              <div className="relative h-64 shrink-0 overflow-hidden rounded-t-xl md:h-80">
                 {wikiByPlaceId[selectedPlacePoint.place.id]?.imageUrl ? (
                   <img
                     src={wikiByPlaceId[selectedPlacePoint.place.id].imageUrl}
                     alt={getPlaceName(selectedPlacePoint.place, language)}
-                    className="mb-3 h-44 w-full rounded-md border object-cover"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                ) : null}
+                ) : (
+                  <div className="h-full w-full bg-muted/30 flex items-center justify-center">
+                    <MapPin className="size-12 opacity-10" />
+                  </div>
+                )}
+                
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                
+                {/* Top Actions */}
+                <div className={cn(
+                  "absolute top-4 flex items-center gap-2",
+                  isRtl ? "left-4" : "right-4"
+                )}>
+                  <a
+                    href={getGoogleMapsUrl(selectedPlacePoint.place)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+                    title={t(language, "seeOnGoogleMaps")}
+                  >
+                    <MapPin className="size-4" />
+                  </a>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+                    onClick={returnToSelectedGovernorate}
+                    title={t(language, "returnToGovernorate", { name: selectedRegion ?? t(language, "governorate") })}
+                  >
+                    <ArrowLeft className="size-4" />
+                  </button>
+                </div>
 
-                <div className={isRtl ? "space-y-2 text-right" : "space-y-2"}>
-                  <p>
-                    <span className="font-medium">{t(language, "descriptionLabel")}</span>{" "}
-                    {wikiByPlaceId[selectedPlacePoint.place.id]?.description || t(language, "noDescription")}
+                {/* Header Metadata Overlay */}
+                <div className={cn(
+                  "absolute bottom-0 w-full p-6 text-white",
+                  isRtl ? "text-right" : "text-left"
+                )}>
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+                    {t(language, "selectedPoi")}
                   </p>
-                  <p>
-                    <span className="font-medium">{t(language, "coordinatesLabel")}</span> {selectedPlacePoint.lat.toFixed(6)}, {selectedPlacePoint.lng.toFixed(6)}
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {wikiByPlaceId[selectedPlacePoint.place.id]?.articleUrl ? (
-                      <a
-                        href={wikiByPlaceId[selectedPlacePoint.place.id].articleUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-                      >
-                        {t(language, "wikipedia")}
-                      </a>
-                    ) : null}
+                  <h3 className="mb-2 text-2xl font-extrabold tracking-tight md:text-3xl">
+                    {getPlaceName(selectedPlacePoint.place, language)}
+                  </h3>
+                  <div className={cn(
+                    "flex flex-wrap items-center gap-3 text-sm",
+                    isRtl ? "flex-row-reverse" : ""
+                  )}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 backdrop-blur-sm">
+                      {(() => {
+                        const Icon = getTagIcon(selectedPlacePoint.place.category);
+                        return Icon ? <Icon className="size-3.5" /> : null;
+                      })()}
+                      {translateCategory(language, selectedPlacePoint.place.category)}
+                    </span>
+                    {selectedPlacePoint.place.subcategory && (
+                      <span className="text-white/60">/</span>
+                    )}
+                    <span className="text-white/80">
+                      {translateSubcategory(language, selectedPlacePoint.place.subcategory)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin">
+                <div className="grid gap-8 lg:grid-cols-1">
+                  {/* Content Section */}
+                  <div className="space-y-6">
+                    <div className={cn(
+                      "space-y-4 text-base leading-relaxed text-muted-foreground",
+                      isRtl ? "text-right" : "text-left"
+                    )}>
+                      <p className="text-foreground/90 first-letter:text-3xl first-letter:font-serif first-letter:mr-1">
+                        {wikiByPlaceId[selectedPlacePoint.place.id]?.description || t(language, "noDescription")}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 py-2 border-y border-border/50">
+                        <div className="flex items-center gap-2 text-xs">
+                          <MapPin className="size-3.5 text-primary" />
+                          <span className="font-mono">{selectedPlacePoint.lat.toFixed(6)}, {selectedPlacePoint.lng.toFixed(6)}</span>
+                        </div>
+                        {wikiByPlaceId[selectedPlacePoint.place.id]?.articleUrl && (
+                          <a
+                            href={wikiByPlaceId[selectedPlacePoint.place.id].articleUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                          >
+                            <ScrollText className="size-3.5" />
+                            {t(language, "wikipedia")}
+                          </a>
+                        )}
+                        <a
+                          href={getGoogleMapsUrl(selectedPlacePoint.place)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                        >
+                          <MapPin className="size-3.5" />
+                          Google Maps
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Similar Places Section */}
+                    {similarPlaces.length > 0 && (
+                      <div className="space-y-4 pt-4">
+                        <div className={cn(
+                          "flex items-center gap-2",
+                          isRtl ? "flex-row-reverse" : ""
+                        )}>
+                          <div className="h-px flex-1 bg-border/60" />
+                          <h4 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Similar Places Nearby
+                          </h4>
+                          <div className="h-px flex-1 bg-border/60" />
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                          {similarPlaces.map((item) => (
+                            <div key={item.place.id} className="scale-95 transition-transform hover:scale-100">
+                              <PlaceCard
+                                place={item.place}
+                                language={language}
+                                imageUrl={wikiByPlaceId[item.place.id]?.imageUrl}
+                                description={wikiByPlaceId[item.place.id]?.description}
+                                onOpenDetails={(p) => {
+                                  const point = places.find(pt => pt.id === p.id);
+                                  if (point) {
+                                    focusPlace({
+                                      place: point,
+                                      lat: parseFloat(point.latitude),
+                                      lng: parseFloat(point.longitude)
+                                    });
+                                  }
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
