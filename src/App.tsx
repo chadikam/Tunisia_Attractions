@@ -8,7 +8,7 @@ import { t } from "./utils/i18n";
 
 function App() {
   const [language, setLanguage] = useState<LanguageCode>("en");
-  const [mapType, setMapType] = useState<"winter-v4" | "streets-v4" | "dataviz-v4">("winter-v4");
+  const [mapType, setMapType] = useState<"winter-v4" | "streets-v4" | "dataviz-v4">("streets-v4");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window === "undefined") {
       return "light";
@@ -55,31 +55,33 @@ function App() {
   }, [theme]);
 
   return (
-    <AppShell
-      language={language}
-      onLanguageChange={setLanguage}
-      mapType={mapType}
-      onMapTypeChange={setMapType}
-      theme={theme}
-      onThemeToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-      search={search}
-      onSearchChange={setSearch}
-      selectedCategories={selectedCategories}
-      onCategoryToggle={toggleCategory}
-      onCategorySelectAll={selectAllCategories}
-      onCategoryDeselectAll={deselectAllCategories}
-      selectedSubcategory={selectedSubcategory}
-      onSubcategoryChange={setSelectedSubcategory}
-      categories={categories}
-      categoryCounts={categoryCounts}
-      subcategories={subcategories}
-    >
-      <MapPage
-        places={filteredPlaces}
+    <>
+      <AppShell
         language={language}
+        onLanguageChange={setLanguage}
         mapType={mapType}
-      />
-    </AppShell>
+        onMapTypeChange={setMapType}
+        theme={theme}
+        onThemeToggle={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+        search={search}
+        onSearchChange={setSearch}
+        selectedCategories={selectedCategories}
+        onCategoryToggle={toggleCategory}
+        onCategorySelectAll={selectAllCategories}
+        onCategoryDeselectAll={deselectAllCategories}
+        selectedSubcategory={selectedSubcategory}
+        onSubcategoryChange={setSelectedSubcategory}
+        categories={categories}
+        categoryCounts={categoryCounts}
+        subcategories={subcategories}
+      >
+        <MapPage
+          places={filteredPlaces}
+          language={language}
+          mapType={mapType}
+        />
+      </AppShell>
+    </>
   );
 }
 

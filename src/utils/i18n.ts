@@ -51,7 +51,8 @@ type TranslationKey =
   | "themeLabel"
   | "themeLight"
   | "themeDark"
-  | "toggleTheme";
+  | "toggleTheme"
+  | "preferences";
 
 const translations: Record<LanguageCode, Record<TranslationKey, TranslationValue>> = {
   en: {
@@ -104,6 +105,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, TranslationValue
     themeLight: "Light",
     themeDark: "Dark",
     toggleTheme: "Toggle theme",
+    preferences: "Preferences",
   },
   fr: {
     siteTitle: "Explorateur de Tunisie",
@@ -155,6 +157,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, TranslationValue
     themeLight: "Clair",
     themeDark: "Sombre",
     toggleTheme: "Basculer le theme",
+    preferences: "Preferences",
   },
   ar: {
     siteTitle: "مستكشف تونس",
@@ -206,6 +209,7 @@ const translations: Record<LanguageCode, Record<TranslationKey, TranslationValue
     themeLight: "فاتح",
     themeDark: "داكن",
     toggleTheme: "تبديل المظهر",
+    preferences: "التفضيلات",
   },
 };
 
